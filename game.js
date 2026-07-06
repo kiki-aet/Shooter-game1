@@ -6,6 +6,9 @@ const ctx = canvas.getContext('2d');
 const CANVAS_WIDTH = canvas.width;
 const CANVAS_HEIGHT = canvas.height;
 
+// Game state
+let showEffects = true; // Toggle for visual effects
+
 // Player object
 const player = {
     x: CANVAS_WIDTH / 2,
@@ -53,11 +56,22 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         reload();
     }
+    
+    if (key === 'f') {
+        e.preventDefault();
+        toggleEffects();
+    }
 });
 
 document.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
+
+// Toggle effects
+function toggleEffects() {
+    showEffects = !showEffects;
+    console.log('Effects ' + (showEffects ? 'ON' : 'OFF'));
+}
 
 // Mouse tracking for aiming
 document.addEventListener('mousemove', (e) => {
@@ -175,7 +189,9 @@ function shoot() {
     bullets.push(bullet);
     
     // Create muzzle flash
-    createMuzzleFlash();
+    if (showEffects) {
+        createMuzzleFlash();
+    }
     updateUI();
 }
 
@@ -224,13 +240,17 @@ function updateBullets() {
             
             if (dist < bullet.radius + enemy.radius) {
                 enemy.health -= bullet.damage;
-                createExplosion(bullet.x, bullet.y, 15);
+                if (showEffects) {
+                    createExplosion(bullet.x, bullet.y, 15);
+                }
                 bullets.splice(i, 1);
                 
                 if (enemy.health <= 0) {
                     score += enemy.points;
                     enemies.splice(j, 1);
-                    createExplosion(enemy.x, enemy.y, 40);
+                    if (showEffects) {
+                        createExplosion(enemy.x, enemy.y, 40);
+                    }
                 }
                 return;
             }
@@ -383,20 +403,22 @@ function draw() {
         ctx.stroke();
     }
     
-    // Draw particles first
-    for (const p of particles) {
-        const opacity = p.life / p.maxLife;
-        let color = `rgba(0, 255, 136, ${opacity})`;
-        if (p.color) {
-            const colorParts = p.color.match(/hsl\((\d+), (\d+)%, (\d+)%\)/);
-            if (colorParts) {
-                color = `hsla(${colorParts[1]}, ${colorParts[2]}%, ${colorParts[3]}%, ${opacity})`;
+    // Draw particles only if effects are on
+    if (showEffects) {
+        for (const p of particles) {
+            const opacity = p.life / p.maxLife;
+            let color = `rgba(0, 255, 136, ${opacity})`;
+            if (p.color) {
+                const colorParts = p.color.match(/hsl\((\d+), (\d+)%, (\d+)%\)/);
+                if (colorParts) {
+                    color = `hsla(${colorParts[1]}, ${colorParts[2]}%, ${colorParts[3]}%, ${opacity})`;
+                }
             }
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+            ctx.fill();
         }
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
-        ctx.fill();
     }
     
     // Draw enemies BEFORE player so player is on top
@@ -430,6 +452,11 @@ function draw() {
     
     // Draw player LAST so it's always on top
     drawPlayer();
+    
+    // Draw effects toggle indicator
+    ctx.fillStyle = showEffects ? '#00ff88' : '#ff3333';
+    ctx.font = '12px Arial';
+    ctx.fillText(showEffects ? 'Effects: ON' : 'Effects: OFF', 10, CANVAS_HEIGHT - 10);
 }
 
 function drawStarfield() {
@@ -626,7 +653,9 @@ function checkLevelProgression() {
     if (newLevel > level) {
         level = newLevel;
         player.health = player.maxHealth;
-        createExplosion(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 100);
+        if (showEffects) {
+            createExplosion(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 100);
+        }
     }
 }
 

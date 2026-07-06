@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shooter Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #0a0e27;
+            border: 3px solid #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+        
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #1a2847 0%, #0a0e27 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff88;
+            font-size: 16px;
+            z-index: 10;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+        }
+        
+        #score, #health, #ammo, #level {
+            margin: 5px 0;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border: 3px solid #ff0000;
+            border-radius: 10px;
+            color: #00ff88;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            font-size: 24px;
+        }
+        
+        #gameOverText {
+            color: #ff0000;
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        
+        #finalScore {
+            color: #00ff88;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+        
+        #restartBtn {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 18px;
+            background: #00ff88;
+            color: #0a0e27;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        #restartBtn:hover {
+            background: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div id="score">Score: 0</div>
+            <div id="health">Health: 100</div>
+            <div id="ammo">Ammo: 30/30</div>
+            <div id="level">Wave: 1</div>
+        </div>
+        <div id="gameOver">
+            <div id="gameOverText">GAME OVER</div>
+            <div id="finalScore">Final Score: 0</div>
+            <button id="restartBtn">Restart Game</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

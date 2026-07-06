@@ -10,8 +10,8 @@ const CANVAS_HEIGHT = canvas.height;
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT / 2,
-    width: 30,
-    height: 30,
+    width: 35,
+    height: 35,
     speed: 5,
     angle: 0,
     health: 100,
@@ -20,7 +20,10 @@ const player = {
     maxAmmo: 30,
     isMoving: false,
     vx: 0,
-    vy: 0
+    vy: 0,
+    reloading: false,
+    reloadTime: 0,
+    maxReloadTime: 30
 };
 
 // Game state
@@ -36,11 +39,17 @@ let enemySpawnRate = 0;
 const keys = {};
 
 document.addEventListener('keydown', (e) => {
-    keys[e.key.toLowerCase()] = true;
+    const key = e.key.toLowerCase();
+    keys[key] = true;
     
     if (e.key === ' ') {
         e.preventDefault();
         shoot();
+    }
+    
+    if (key === 'r') {
+        e.preventDefault();
+        reload();
     }
 });
 
@@ -83,9 +92,31 @@ function updatePlayerMovement() {
     player.y = Math.max(player.height / 2, Math.min(CANVAS_HEIGHT - player.height / 2, player.y));
 }
 
+// Reload function
+function reload() {
+    if (player.reloading || player.ammo === player.maxAmmo || !gameActive) return;
+    
+    player.reloading = true;
+    player.reloadTime = 0;
+}
+
+// Update reload
+function updateReload() {
+    if (player.reloading) {
+        player.reloadTime++;
+        
+        if (player.reloadTime >= player.maxReloadTime) {
+            player.ammo = player.maxAmmo;
+            player.reloading = false;
+            player.reloadTime = 0;
+            updateUI();
+        }
+    }
+}
+
 // Shooting
 function shoot() {
-    if (player.ammo <= 0 || !gameActive) return;
+    if (player.ammo <= 0 || !gameActive || player.reloading) return;
     
     player.ammo--;
     
@@ -100,8 +131,31 @@ function shoot() {
     
     bullets.push(bullet);
     
-    // Ammo feedback
+    // Create muzzle flash
+    createMuzzleFlash();
     updateUI();
+}
+
+// Muzzle flash effect
+function createMuzzleFlash() {
+    const flashX = player.x + Math.cos(player.angle) * 20;
+    const flashY = player.y + Math.sin(player.angle) * 20;
+    
+    for (let i = 0; i < 8; i++) {
+        const angle = player.angle + (Math.random() - 0.5) * 0.5;
+        const velocity = 3 + Math.random() * 2;
+        
+        particles.push({
+            x: flashX,
+            y: flashY,
+            vx: Math.cos(angle) * velocity,
+            vy: Math.sin(angle) * velocity,
+            life: 10,
+            maxLife: 10,
+            size: 2 + Math.random() * 2,
+            color: `hsl(${30 + Math.random() * 30}, 100%, ${50 + Math.random() * 30}%)`
+        });
+    }
 }
 
 // Update bullets
@@ -133,7 +187,7 @@ function updateBullets() {
                 if (enemy.health <= 0) {
                     score += enemy.points;
                     enemies.splice(j, 1);
-                    createExplosion(enemy.x, enemy.y, 20);
+                    createExplosion(enemy.x, enemy.y, 30);
                 }
                 return;
             }
@@ -225,17 +279,18 @@ function updateEnemies() {
 // Particle effect
 function createExplosion(x, y, count) {
     for (let i = 0; i < count; i++) {
-        const angle = (Math.PI * 2 * i) / count;
-        const velocity = 2 + Math.random() * 3;
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+        const velocity = 2 + Math.random() * 4;
         
         particles.push({
             x: x,
             y: y,
             vx: Math.cos(angle) * velocity,
             vy: Math.sin(angle) * velocity,
-            life: 30,
-            maxLife: 30,
-            size: 3 + Math.random() * 2
+            life: 40,
+            maxLife: 40,
+            size: 3 + Math.random() * 3,
+            color: `hsl(${Math.random() * 60}, 100%, ${50 + Math.random() * 30}%)`
         });
     }
 }
@@ -246,8 +301,10 @@ function updateParticles() {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.1; // gravity
+        p.vy += 0.15; // gravity
         p.life--;
+        p.vx *= 0.98; // friction
+        p.vy *= 0.98;
         
         if (p.life <= 0) {
             particles.splice(i, 1);
@@ -257,12 +314,15 @@ function updateParticles() {
 
 // Draw everything
 function draw() {
-    // Clear canvas
-    ctx.fillStyle = 'rgba(10, 14, 39, 0.3)';
+    // Clear canvas with fade effect
+    ctx.fillStyle = 'rgba(10, 14, 39, 0.2)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
+    // Draw starfield background
+    drawStarfield();
+    
     // Draw grid
-    ctx.strokeStyle = 'rgba(0, 255, 136, 0.05)';
+    ctx.strokeStyle = 'rgba(0, 255, 136, 0.08)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= CANVAS_WIDTH; i += 50) {
         ctx.beginPath();
@@ -277,11 +337,20 @@ function draw() {
         ctx.stroke();
     }
     
+    // Draw particles first
+    for (const p of particles) {
+        const opacity = p.life / p.maxLife;
+        ctx.fillStyle = p.color ? p.color.replace(')', `, ${opacity})`) : `rgba(0, 255, 136, ${opacity})`;
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    
     // Draw player
     drawPlayer();
     
     // Draw bullets
     ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = 'rgba(0, 255, 136, 0.8)';
+    ctx.shadowBlur = 10;
     for (const bullet of bullets) {
         if (!bullet.isEnemyBullet) {
             ctx.beginPath();
@@ -289,9 +358,12 @@ function draw() {
             ctx.fill();
         }
     }
+    ctx.shadowBlur = 0;
     
     // Draw enemy bullets
-    ctx.fillStyle = '#ff0000';
+    ctx.fillStyle = '#ff3333';
+    ctx.shadowColor = 'rgba(255, 51, 51, 0.8)';
+    ctx.shadowBlur = 10;
     for (const bullet of bullets) {
         if (bullet.isEnemyBullet) {
             ctx.beginPath();
@@ -299,17 +371,24 @@ function draw() {
             ctx.fill();
         }
     }
+    ctx.shadowBlur = 0;
     
     // Draw enemies
     for (const enemy of enemies) {
         drawEnemy(enemy);
     }
-    
-    // Draw particles
-    for (const p of particles) {
-        const opacity = p.life / p.maxLife;
-        ctx.fillStyle = `rgba(0, 255, 136, ${opacity})`;
-        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+}
+
+function drawStarfield() {
+    // Create pseudo-random starfield based on position
+    const seed = Math.floor(CANVAS_WIDTH / 50);
+    for (let i = 0; i < seed * 3; i++) {
+        const x = (i * 137) % CANVAS_WIDTH;
+        const y = (i * 73) % CANVAS_HEIGHT;
+        const brightness = ((i * 29) % 100) / 100;
+        
+        ctx.fillStyle = `rgba(255, 255, 255, ${brightness * 0.6})`;
+        ctx.fillRect(x, y, 1, 1);
     }
 }
 
@@ -318,50 +397,130 @@ function drawPlayer() {
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
     
-    // Body
-    ctx.fillStyle = '#00ff88';
+    // Draw shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, player.width / 1.5, player.height / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Body with gradient
+    const bodyGradient = ctx.createLinearGradient(-player.width / 2, -player.height / 2, player.width / 2, player.height / 2);
+    bodyGradient.addColorStop(0, '#00ff88');
+    bodyGradient.addColorStop(0.5, '#00dd66');
+    bodyGradient.addColorStop(1, '#00aa44');
+    ctx.fillStyle = bodyGradient;
     ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
     
-    // Gun
-    ctx.fillStyle = '#ffaa00';
-    ctx.fillRect(player.width / 2 - 5, -3, 15, 6);
+    // Body border
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-player.width / 2, -player.height / 2, player.width, player.height);
     
-    // Health indicator
+    // Gun barrel
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(player.width / 2 - 5, -4, 15, 8);
+    
+    // Gun shine
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(player.width / 2 - 5, -3, 15, 3);
+    
+    // Ammo indicator lights
+    const ammoPercent = player.ammo / player.maxAmmo;
+    const lightColor = ammoPercent > 0.5 ? '#00ff88' : ammoPercent > 0.25 ? '#ffaa00' : '#ff3333';
+    ctx.fillStyle = lightColor;
+    ctx.beginPath();
+    ctx.arc(-player.width / 3, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Health bar background
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(-player.width / 2, -player.height / 2 - 10, player.width, 5);
+    
+    // Health bar
     const healthPercent = player.health / player.maxHealth;
-    ctx.fillStyle = healthPercent > 0.5 ? '#00ff88' : healthPercent > 0.25 ? '#ffaa00' : '#ff0000';
-    ctx.fillRect(-player.width / 2, -player.height / 2 - 8, player.width * healthPercent, 4);
+    const healthColor = healthPercent > 0.5 ? '#00ff88' : healthPercent > 0.25 ? '#ffaa00' : '#ff3333';
+    ctx.fillStyle = healthColor;
+    ctx.fillRect(-player.width / 2, -player.height / 2 - 10, player.width * healthPercent, 5);
+    
+    // Reload indicator
+    if (player.reloading) {
+        const reloadPercent = player.reloadTime / player.maxReloadTime;
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillRect(-player.width / 2, player.height / 2 + 5, player.width * reloadPercent, 4);
+        ctx.strokeStyle = '#ffaa00';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-player.width / 2, player.height / 2 + 5, player.width, 4);
+    }
     
     ctx.restore();
 }
 
 function drawEnemy(enemy) {
-    // Body
-    const healthPercent = enemy.health / enemy.maxHealth;
-    ctx.fillStyle = `hsl(0, 100%, ${50 - healthPercent * 30}%)`;
+    ctx.save();
+    ctx.translate(enemy.x, enemy.y);
+    
+    // Draw shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, enemy.radius * 1.2, enemy.radius * 0.6, 0, 0, Math.PI * 2);
     ctx.fill();
     
+    // Body with gradient
+    const healthPercent = enemy.health / enemy.maxHealth;
+    const hue = healthPercent > 0.5 ? 0 : healthPercent > 0.25 ? 30 : 10;
+    const lightness = 40 + (1 - healthPercent) * 20;
+    
+    const enemyGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, enemy.radius);
+    enemyGradient.addColorStop(0, `hsl(${hue}, 100%, ${lightness + 15}%)`);
+    enemyGradient.addColorStop(1, `hsl(${hue}, 100%, ${lightness - 15}%)`);
+    ctx.fillStyle = enemyGradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Enemy border
+    ctx.strokeStyle = `hsl(${hue}, 100%, ${lightness}%)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Enemy eye
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(-4, -3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(4, -3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Pupils
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(-4, -3, 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(4, -3, 1, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Health bar background
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(-enemy.radius, -enemy.radius - 10, enemy.radius * 2, 4);
+    
     // Health bar
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 8, enemy.radius * 2, 4);
-    ctx.fillStyle = '#00ff88';
-    ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 8, enemy.radius * 2 * healthPercent, 4);
+    ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
+    ctx.fillRect(-enemy.radius, -enemy.radius - 10, enemy.radius * 2 * healthPercent, 4);
+    
+    ctx.restore();
 }
 
 // Update UI
 function updateUI() {
+    const reloadText = player.reloading ? ` (Reloading ${Math.ceil((player.reloadTime / player.maxReloadTime) * 100)}%)` : '';
     document.getElementById('score').textContent = `Score: ${score}`;
-    document.getElementById('health').textContent = `Health: ${Math.ceil(player.health)}`;
-    document.getElementById('ammo').textContent = `Ammo: ${player.ammo}/${player.maxAmmo}`;
+    document.getElementById('health').textContent = `Health: ${Math.ceil(player.health)}%`;
+    document.getElementById('ammo').textContent = `Ammo: ${player.ammo}/${player.maxAmmo}${reloadText}`;
     document.getElementById('level').textContent = `Wave: ${level}`;
-}
-
-// Ammo regeneration
-function regenerateAmmo() {
-    if (player.ammo < player.maxAmmo && Math.random() < 0.02) {
-        player.ammo++;
-    }
 }
 
 // Level progression
@@ -372,7 +531,7 @@ function checkLevelProgression() {
     if (newLevel > level) {
         level = newLevel;
         player.health = player.maxHealth;
-        createExplosion(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 50);
+        createExplosion(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 80);
     }
 }
 
@@ -393,6 +552,8 @@ function restartGame() {
     player.ammo = player.maxAmmo;
     player.x = CANVAS_WIDTH / 2;
     player.y = CANVAS_HEIGHT / 2;
+    player.reloading = false;
+    player.reloadTime = 0;
     bullets = [];
     enemies = [];
     particles = [];
@@ -407,7 +568,7 @@ function gameLoop() {
         updateBullets();
         updateEnemies();
         updateParticles();
-        regenerateAmmo();
+        updateReload();
         checkLevelProgression();
         updateUI();
     }

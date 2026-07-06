@@ -8,6 +8,7 @@ const CANVAS_HEIGHT = canvas.height;
 
 // Game state
 let showEffects = true; // Toggle for visual effects
+let showShootingGlow = true; // Toggle for shooting glow effect
 
 // Player object
 const player = {
@@ -69,12 +70,8 @@ document.addEventListener('keyup', (e) => {
 
 // Toggle effects
 function toggleEffects() {
-    showEffects = !showEffects;
-    // Clear existing particles when turning off effects
-    if (!showEffects) {
-        particles = [];
-    }
-    console.log('Effects ' + (showEffects ? 'ON' : 'OFF'));
+    showShootingGlow = !showShootingGlow;
+    console.log('Shooting Glow ' + (showShootingGlow ? 'ON' : 'OFF'));
 }
 
 // Mouse tracking for aiming
@@ -457,10 +454,10 @@ function draw() {
     // Draw player LAST so it's always on top
     drawPlayer();
     
-    // Draw effects toggle indicator
-    ctx.fillStyle = showEffects ? '#00ff88' : '#ff3333';
+    // Draw glow toggle indicator
+    ctx.fillStyle = showShootingGlow ? '#00ff88' : '#ff3333';
     ctx.font = '12px Arial';
-    ctx.fillText(showEffects ? 'Effects: ON' : 'Effects: OFF', 10, CANVAS_HEIGHT - 10);
+    ctx.fillText(showShootingGlow ? 'Glow: ON' : 'Glow: OFF', 10, CANVAS_HEIGHT - 10);
 }
 
 function drawStarfield() {
@@ -558,8 +555,8 @@ function drawPlayer() {
         ctx.strokeRect(-player.width / 2, player.height / 2 + 6, player.width, 5);
     }
     
-    // Shooting indicator (red glow when shooting)
-    if (player.isShooting) {
+    // Shooting indicator (red glow when shooting) - ONLY if enabled
+    if (player.isShooting && showShootingGlow) {
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
         ctx.lineWidth = 2;
         ctx.globalAlpha = 0.6;

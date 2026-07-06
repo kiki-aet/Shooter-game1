@@ -23,7 +23,10 @@ const player = {
     vy: 0,
     reloading: false,
     reloadTime: 0,
-    maxReloadTime: 30
+    maxReloadTime: 30,
+    isShooting: false,
+    shootCooldown: 0,
+    shootDelay: 8 // Frames between shots
 };
 
 // Game state
@@ -44,7 +47,6 @@ document.addEventListener('keydown', (e) => {
     
     if (e.key === ' ') {
         e.preventDefault();
-        shoot();
     }
     
     if (key === 'r') {
@@ -66,9 +68,31 @@ document.addEventListener('mousemove', (e) => {
     player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
 });
 
-// Click to shoot
-document.addEventListener('click', () => {
-    if (gameActive) shoot();
+// Mouse down - start shooting
+document.addEventListener('mousedown', (e) => {
+    if (gameActive) {
+        player.isShooting = true;
+        player.shootCooldown = 0;
+    }
+});
+
+// Mouse up - stop shooting
+document.addEventListener('mouseup', (e) => {
+    player.isShooting = false;
+});
+
+// Space key for shooting
+document.addEventListener('keydown', (e) => {
+    if (e.key === ' ' && gameActive) {
+        player.isShooting = true;
+        player.shootCooldown = 0;
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === ' ') {
+        player.isShooting = false;
+    }
 });
 
 // Restart button
@@ -92,12 +116,25 @@ function updatePlayerMovement() {
     player.y = Math.max(player.height / 2, Math.min(CANVAS_HEIGHT - player.height / 2, player.y));
 }
 
+// Continuous shooting
+function updateShooting() {
+    if (player.isShooting && gameActive && !player.reloading) {
+        player.shootCooldown++;
+        
+        if (player.shootCooldown >= player.shootDelay) {
+            shoot();
+            player.shootCooldown = 0;
+        }
+    }
+}
+
 // Reload function
 function reload() {
     if (player.reloading || player.ammo === player.maxAmmo || !gameActive) return;
     
     player.reloading = true;
     player.reloadTime = 0;
+    player.isShooting = false; // Stop shooting when reloading
 }
 
 // Update reload
@@ -116,7 +153,13 @@ function updateReload() {
 
 // Shooting
 function shoot() {
-    if (player.ammo <= 0 || !gameActive || player.reloading) return;
+    if (player.ammo <= 0 || !gameActive || player.reloading) {
+        if (player.ammo <= 0 && !player.reloading) {
+            // Auto-reload when out of ammo
+            reload();
+        }
+        return;
+    }
     
     player.ammo--;
     
@@ -484,6 +527,15 @@ function drawPlayer() {
         ctx.strokeRect(-player.width / 2, player.height / 2 + 6, player.width, 5);
     }
     
+    // Shooting indicator (red glow when shooting)
+    if (player.isShooting) {
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.6;
+        ctx.strokeRect(-player.width / 2 - 3, -player.height / 2 - 3, player.width + 6, player.height + 6);
+        ctx.globalAlpha = 1.0;
+    }
+    
     ctx.restore();
 }
 
@@ -597,6 +649,8 @@ function restartGame() {
     player.y = CANVAS_HEIGHT / 2;
     player.reloading = false;
     player.reloadTime = 0;
+    player.isShooting = false;
+    player.shootCooldown = 0;
     bullets = [];
     enemies = [];
     particles = [];
@@ -608,6 +662,7 @@ function restartGame() {
 function gameLoop() {
     if (gameActive) {
         updatePlayerMovement();
+        updateShooting();
         updateBullets();
         updateEnemies();
         updateParticles();

@@ -10,8 +10,8 @@ const CANVAS_HEIGHT = canvas.height;
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT / 2,
-    width: 35,
-    height: 35,
+    width: 40,
+    height: 40,
     speed: 5,
     angle: 0,
     health: 100,
@@ -138,22 +138,22 @@ function shoot() {
 
 // Muzzle flash effect
 function createMuzzleFlash() {
-    const flashX = player.x + Math.cos(player.angle) * 20;
-    const flashY = player.y + Math.sin(player.angle) * 20;
+    const flashX = player.x + Math.cos(player.angle) * 25;
+    const flashY = player.y + Math.sin(player.angle) * 25;
     
-    for (let i = 0; i < 8; i++) {
-        const angle = player.angle + (Math.random() - 0.5) * 0.5;
-        const velocity = 3 + Math.random() * 2;
+    for (let i = 0; i < 12; i++) {
+        const angle = player.angle + (Math.random() - 0.5) * 0.8;
+        const velocity = 3 + Math.random() * 3;
         
         particles.push({
             x: flashX,
             y: flashY,
             vx: Math.cos(angle) * velocity,
             vy: Math.sin(angle) * velocity,
-            life: 10,
-            maxLife: 10,
-            size: 2 + Math.random() * 2,
-            color: `hsl(${30 + Math.random() * 30}, 100%, ${50 + Math.random() * 30}%)`
+            life: 15,
+            maxLife: 15,
+            size: 3 + Math.random() * 3,
+            color: `hsl(${30 + Math.random() * 40}, 100%, ${50 + Math.random() * 40}%)`
         });
     }
 }
@@ -181,13 +181,13 @@ function updateBullets() {
             
             if (dist < bullet.radius + enemy.radius) {
                 enemy.health -= bullet.damage;
-                createExplosion(bullet.x, bullet.y, 10);
+                createExplosion(bullet.x, bullet.y, 15);
                 bullets.splice(i, 1);
                 
                 if (enemy.health <= 0) {
                     score += enemy.points;
                     enemies.splice(j, 1);
-                    createExplosion(enemy.x, enemy.y, 30);
+                    createExplosion(enemy.x, enemy.y, 40);
                 }
                 return;
             }
@@ -210,7 +210,7 @@ function spawnEnemy() {
     const enemy = {
         x: x,
         y: y,
-        radius: 15,
+        radius: 18,
         speed: 2 + level * 0.5,
         health: 50 + level * 10,
         maxHealth: 50 + level * 10,
@@ -249,18 +249,20 @@ function updateEnemies() {
         // Shoot at player
         enemy.shootCooldown++;
         if (enemy.shootCooldown > 60) {
-            const bulletVx = (dx / dist) * 4;
-            const bulletVy = (dy / dist) * 4;
-            
-            bullets.push({
-                x: enemy.x,
-                y: enemy.y,
-                vx: bulletVx,
-                vy: bulletVy,
-                radius: 4,
-                damage: 0,
-                isEnemyBullet: true
-            });
+            if (dist > 0) {
+                const bulletVx = (dx / dist) * 4;
+                const bulletVy = (dy / dist) * 4;
+                
+                bullets.push({
+                    x: enemy.x,
+                    y: enemy.y,
+                    vx: bulletVx,
+                    vy: bulletVy,
+                    radius: 4,
+                    damage: 0,
+                    isEnemyBullet: true
+                });
+            }
             
             enemy.shootCooldown = 0;
         }
@@ -279,17 +281,17 @@ function updateEnemies() {
 // Particle effect
 function createExplosion(x, y, count) {
     for (let i = 0; i < count; i++) {
-        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
-        const velocity = 2 + Math.random() * 4;
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+        const velocity = 2 + Math.random() * 5;
         
         particles.push({
             x: x,
             y: y,
             vx: Math.cos(angle) * velocity,
             vy: Math.sin(angle) * velocity,
-            life: 40,
-            maxLife: 40,
-            size: 3 + Math.random() * 3,
+            life: 50,
+            maxLife: 50,
+            size: 3 + Math.random() * 4,
             color: `hsl(${Math.random() * 60}, 100%, ${50 + Math.random() * 30}%)`
         });
     }
@@ -302,12 +304,13 @@ function updateParticles() {
         p.x += p.vx;
         p.y += p.vy;
         p.vy += 0.15; // gravity
-        p.life--;
         p.vx *= 0.98; // friction
         p.vy *= 0.98;
         
         if (p.life <= 0) {
             particles.splice(i, 1);
+        } else {
+            p.life--;
         }
     }
 }
@@ -315,7 +318,7 @@ function updateParticles() {
 // Draw everything
 function draw() {
     // Clear canvas with fade effect
-    ctx.fillStyle = 'rgba(10, 14, 39, 0.2)';
+    ctx.fillStyle = 'rgba(10, 14, 39, 0.15)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
     // Draw starfield background
@@ -340,17 +343,28 @@ function draw() {
     // Draw particles first
     for (const p of particles) {
         const opacity = p.life / p.maxLife;
-        ctx.fillStyle = p.color ? p.color.replace(')', `, ${opacity})`) : `rgba(0, 255, 136, ${opacity})`;
-        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        let color = `rgba(0, 255, 136, ${opacity})`;
+        if (p.color) {
+            const colorParts = p.color.match(/hsl\((\d+), (\d+)%, (\d+)%\)/);
+            if (colorParts) {
+                color = `hsla(${colorParts[1]}, ${colorParts[2]}%, ${colorParts[3]}%, ${opacity})`;
+            }
+        }
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+        ctx.fill();
     }
     
-    // Draw player
-    drawPlayer();
+    // Draw enemies BEFORE player so player is on top
+    for (const enemy of enemies) {
+        drawEnemy(enemy);
+    }
     
     // Draw bullets
-    ctx.fillStyle = '#00ff88';
     ctx.shadowColor = 'rgba(0, 255, 136, 0.8)';
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#00ff88';
     for (const bullet of bullets) {
         if (!bullet.isEnemyBullet) {
             ctx.beginPath();
@@ -358,12 +372,10 @@ function draw() {
             ctx.fill();
         }
     }
-    ctx.shadowBlur = 0;
     
     // Draw enemy bullets
-    ctx.fillStyle = '#ff3333';
     ctx.shadowColor = 'rgba(255, 51, 51, 0.8)';
-    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ff3333';
     for (const bullet of bullets) {
         if (bullet.isEnemyBullet) {
             ctx.beginPath();
@@ -373,21 +385,18 @@ function draw() {
     }
     ctx.shadowBlur = 0;
     
-    // Draw enemies
-    for (const enemy of enemies) {
-        drawEnemy(enemy);
-    }
+    // Draw player LAST so it's always on top
+    drawPlayer();
 }
 
 function drawStarfield() {
-    // Create pseudo-random starfield based on position
-    const seed = Math.floor(CANVAS_WIDTH / 50);
-    for (let i = 0; i < seed * 3; i++) {
+    // Create pseudo-random starfield
+    for (let i = 0; i < 100; i++) {
         const x = (i * 137) % CANVAS_WIDTH;
         const y = (i * 73) % CANVAS_HEIGHT;
         const brightness = ((i * 29) % 100) / 100;
         
-        ctx.fillStyle = `rgba(255, 255, 255, ${brightness * 0.6})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${brightness * 0.5})`;
         ctx.fillRect(x, y, 1, 1);
     }
 }
@@ -398,58 +407,81 @@ function drawPlayer() {
     ctx.rotate(player.angle);
     
     // Draw shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
     ctx.ellipse(0, 0, player.width / 1.5, player.height / 2, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // Body with gradient
+    // Main body with bright gradient
     const bodyGradient = ctx.createLinearGradient(-player.width / 2, -player.height / 2, player.width / 2, player.height / 2);
-    bodyGradient.addColorStop(0, '#00ff88');
-    bodyGradient.addColorStop(0.5, '#00dd66');
-    bodyGradient.addColorStop(1, '#00aa44');
+    bodyGradient.addColorStop(0, '#00ffff');
+    bodyGradient.addColorStop(0.5, '#00ff88');
+    bodyGradient.addColorStop(1, '#00dd66');
     ctx.fillStyle = bodyGradient;
     ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
     
-    // Body border
-    ctx.strokeStyle = '#00ff88';
-    ctx.lineWidth = 2;
+    // Bright body border
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 3;
     ctx.strokeRect(-player.width / 2, -player.height / 2, player.width, player.height);
     
-    // Gun barrel
-    ctx.fillStyle = '#333333';
-    ctx.fillRect(player.width / 2 - 5, -4, 15, 8);
+    // Corner accents
+    ctx.fillStyle = '#00ffff';
+    const cornerSize = 5;
+    ctx.fillRect(-player.width / 2, -player.height / 2, cornerSize, cornerSize);
+    ctx.fillRect(player.width / 2 - cornerSize, -player.height / 2, cornerSize, cornerSize);
+    ctx.fillRect(-player.width / 2, player.height / 2 - cornerSize, cornerSize, cornerSize);
+    ctx.fillRect(player.width / 2 - cornerSize, player.height / 2 - cornerSize, cornerSize, cornerSize);
+    
+    // Gun barrel - prominent
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(player.width / 2 - 6, -5, 20, 10);
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(player.width / 2 - 6, -5, 20, 10);
     
     // Gun shine
-    ctx.fillStyle = '#666666';
-    ctx.fillRect(player.width / 2 - 5, -3, 15, 3);
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.6)';
+    ctx.fillRect(player.width / 2 - 6, -5, 20, 3);
+    
+    // Center circle
+    ctx.fillStyle = '#00ffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
     
     // Ammo indicator lights
     const ammoPercent = player.ammo / player.maxAmmo;
     const lightColor = ammoPercent > 0.5 ? '#00ff88' : ammoPercent > 0.25 ? '#ffaa00' : '#ff3333';
     ctx.fillStyle = lightColor;
     ctx.beginPath();
-    ctx.arc(-player.width / 3, 0, 3, 0, Math.PI * 2);
+    ctx.arc(-player.width / 3, 0, 4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     
     // Health bar background
     ctx.fillStyle = '#333333';
-    ctx.fillRect(-player.width / 2, -player.height / 2 - 10, player.width, 5);
+    ctx.fillRect(-player.width / 2, -player.height / 2 - 12, player.width, 6);
     
     // Health bar
     const healthPercent = player.health / player.maxHealth;
     const healthColor = healthPercent > 0.5 ? '#00ff88' : healthPercent > 0.25 ? '#ffaa00' : '#ff3333';
     ctx.fillStyle = healthColor;
-    ctx.fillRect(-player.width / 2, -player.height / 2 - 10, player.width * healthPercent, 5);
+    ctx.fillRect(-player.width / 2, -player.height / 2 - 12, player.width * healthPercent, 6);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-player.width / 2, -player.height / 2 - 12, player.width, 6);
     
     // Reload indicator
     if (player.reloading) {
         const reloadPercent = player.reloadTime / player.maxReloadTime;
         ctx.fillStyle = '#ffaa00';
-        ctx.fillRect(-player.width / 2, player.height / 2 + 5, player.width * reloadPercent, 4);
+        ctx.fillRect(-player.width / 2, player.height / 2 + 6, player.width * reloadPercent, 5);
         ctx.strokeStyle = '#ffaa00';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(-player.width / 2, player.height / 2 + 5, player.width, 4);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-player.width / 2, player.height / 2 + 6, player.width, 5);
     }
     
     ctx.restore();
@@ -460,56 +492,67 @@ function drawEnemy(enemy) {
     ctx.translate(enemy.x, enemy.y);
     
     // Draw shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.beginPath();
-    ctx.ellipse(0, 0, enemy.radius * 1.2, enemy.radius * 0.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, enemy.radius * 1.3, enemy.radius * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // Body with gradient
     const healthPercent = enemy.health / enemy.maxHealth;
     const hue = healthPercent > 0.5 ? 0 : healthPercent > 0.25 ? 30 : 10;
-    const lightness = 40 + (1 - healthPercent) * 20;
+    const lightness = 35 + (1 - healthPercent) * 25;
     
     const enemyGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, enemy.radius);
-    enemyGradient.addColorStop(0, `hsl(${hue}, 100%, ${lightness + 15}%)`);
-    enemyGradient.addColorStop(1, `hsl(${hue}, 100%, ${lightness - 15}%)`);
+    enemyGradient.addColorStop(0, `hsl(${hue}, 100%, ${lightness + 20}%)`);
+    enemyGradient.addColorStop(0.7, `hsl(${hue}, 100%, ${lightness}%)`);
+    enemyGradient.addColorStop(1, `hsl(${hue}, 100%, ${lightness - 20}%)`);
     ctx.fillStyle = enemyGradient;
     ctx.beginPath();
     ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
     ctx.fill();
     
     // Enemy border
-    ctx.strokeStyle = `hsl(${hue}, 100%, ${lightness}%)`;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = `hsl(${hue}, 100%, ${lightness + 10}%)`;
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
     ctx.stroke();
     
-    // Enemy eye
+    // Enemy eyes
     ctx.fillStyle = '#ffff00';
     ctx.beginPath();
-    ctx.arc(-4, -3, 2.5, 0, Math.PI * 2);
+    ctx.arc(-5, -4, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(4, -3, 2.5, 0, Math.PI * 2);
+    ctx.arc(5, -4, 3, 0, Math.PI * 2);
     ctx.fill();
     
     // Pupils
     ctx.fillStyle = '#000000';
     ctx.beginPath();
-    ctx.arc(-4, -3, 1, 0, Math.PI * 2);
+    ctx.arc(-5, -4, 1.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(4, -3, 1, 0, Math.PI * 2);
+    ctx.arc(5, -4, 1.5, 0, Math.PI * 2);
     ctx.fill();
     
+    // Mouth line
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius * 0.6, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.stroke();
+    
     // Health bar background
-    ctx.fillStyle = '#333333';
-    ctx.fillRect(-enemy.radius, -enemy.radius - 10, enemy.radius * 2, 4);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(-enemy.radius, -enemy.radius - 12, enemy.radius * 2, 5);
     
     // Health bar
     ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
-    ctx.fillRect(-enemy.radius, -enemy.radius - 10, enemy.radius * 2 * healthPercent, 4);
+    ctx.fillRect(-enemy.radius, -enemy.radius - 12, enemy.radius * 2 * healthPercent, 5);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-enemy.radius, -enemy.radius - 12, enemy.radius * 2, 5);
     
     ctx.restore();
 }
@@ -531,7 +574,7 @@ function checkLevelProgression() {
     if (newLevel > level) {
         level = newLevel;
         player.health = player.maxHealth;
-        createExplosion(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 80);
+        createExplosion(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 100);
     }
 }
 

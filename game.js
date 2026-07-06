@@ -8,7 +8,7 @@ const CANVAS_HEIGHT = canvas.height;
 
 // Game state
 let showEffects = true; // Toggle for visual effects
-let showShootingGlow = true; // Toggle for shooting glow effect
+let showCharacterGlow = true; // Toggle for character trailing glow effect
 
 // Player object
 const player = {
@@ -30,7 +30,8 @@ const player = {
     maxReloadTime: 30,
     isShooting: false,
     shootCooldown: 0,
-    shootDelay: 8 // Frames between shots
+    shootDelay: 8, // Frames between shots
+    trailPositions: [] // Store previous positions for trailing effect
 };
 
 // Game state
@@ -60,7 +61,7 @@ document.addEventListener('keydown', (e) => {
     
     if (key === 'f') {
         e.preventDefault();
-        toggleEffects();
+        toggleCharacterGlow();
     }
 });
 
@@ -68,10 +69,14 @@ document.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
 
-// Toggle effects
-function toggleEffects() {
-    showShootingGlow = !showShootingGlow;
-    console.log('Shooting Glow ' + (showShootingGlow ? 'ON' : 'OFF'));
+// Toggle character glow effect
+function toggleCharacterGlow() {
+    showCharacterGlow = !showCharacterGlow;
+    // Clear trail when toggling off
+    if (!showCharacterGlow) {
+        player.trailPositions = [];
+    }
+    console.log('Character Glow ' + (showCharacterGlow ? 'ON' : 'OFF'));
 }
 
 // Mouse tracking for aiming
@@ -129,6 +134,30 @@ function updatePlayerMovement() {
     // Boundary collision
     player.x = Math.max(player.width / 2, Math.min(CANVAS_WIDTH - player.width / 2, player.x));
     player.y = Math.max(player.height / 2, Math.min(CANVAS_HEIGHT - player.height / 2, player.y));
+    
+    // Add to trail if glow is enabled
+    if (showCharacterGlow) {
+        player.trailPositions.push({
+            x: player.x,
+            y: player.y,
+            age: 0
+        });
+        
+        // Keep trail limited to last 20 positions
+        if (player.trailPositions.length > 20) {
+            player.trailPositions.shift();
+        }
+    }
+}
+
+// Age trail positions
+function updateTrail() {
+    for (let i = 0; i < player.trailPositions.length; i++) {
+        player.trailPositions[i].age++;
+    }
+    
+    // Remove old trail positions
+    player.trailPositions = player.trailPositions.filter(pos => pos.age < 20);
 }
 
 // Continuous shooting
@@ -404,6 +433,11 @@ function draw() {
         ctx.stroke();
     }
     
+    // Draw character trail glow BEFORE everything else
+    if (showCharacterGlow) {
+        drawCharacterTrail();
+    }
+    
     // Draw particles only if effects are on
     if (showEffects) {
         for (const p of particles) {
@@ -455,9 +489,9 @@ function draw() {
     drawPlayer();
     
     // Draw glow toggle indicator
-    ctx.fillStyle = showShootingGlow ? '#00ff88' : '#ff3333';
-    ctx.font = '12px Arial';
-    ctx.fillText(showShootingGlow ? 'Glow: ON' : 'Glow: OFF', 10, CANVAS_HEIGHT - 10);
+    ctx.fillStyle = showCharacterGlow ? '#00ff88' : '#ff3333';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(showCharacterGlow ? 'Glow: ON' : 'Glow: OFF', 10, CANVAS_HEIGHT - 10);
 }
 
 function drawStarfield() {
@@ -469,6 +503,27 @@ function drawStarfield() {
         
         ctx.fillStyle = `rgba(255, 255, 255, ${brightness * 0.5})`;
         ctx.fillRect(x, y, 1, 1);
+    }
+}
+
+function drawCharacterTrail() {
+    // Draw trailing glow effect
+    for (let i = 0; i < player.trailPositions.length; i++) {
+        const pos = player.trailPositions[i];
+        const opacity = 1 - (pos.age / 20);
+        const size = (1 - (pos.age / 20)) * 35;
+        
+        // Cyan glow circle
+        ctx.fillStyle = `rgba(0, 255, 136, ${opacity * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner brighter glow
+        ctx.fillStyle = `rgba(0, 255, 200, ${opacity * 0.2})`;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 
@@ -553,15 +608,6 @@ function drawPlayer() {
         ctx.strokeStyle = '#ffaa00';
         ctx.lineWidth = 2;
         ctx.strokeRect(-player.width / 2, player.height / 2 + 6, player.width, 5);
-    }
-    
-    // Shooting indicator (red glow when shooting) - ONLY if enabled
-    if (player.isShooting && showShootingGlow) {
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.6;
-        ctx.strokeRect(-player.width / 2 - 3, -player.height / 2 - 3, player.width + 6, player.height + 6);
-        ctx.globalAlpha = 1.0;
     }
     
     ctx.restore();
@@ -681,6 +727,7 @@ function restartGame() {
     player.reloadTime = 0;
     player.isShooting = false;
     player.shootCooldown = 0;
+    player.trailPositions = [];
     bullets = [];
     enemies = [];
     particles = [];
@@ -692,6 +739,7 @@ function restartGame() {
 function gameLoop() {
     if (gameActive) {
         updatePlayerMovement();
+        updateTrail();
         updateShooting();
         updateBullets();
         updateEnemies();
